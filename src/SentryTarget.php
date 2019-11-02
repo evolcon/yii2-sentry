@@ -15,7 +15,6 @@ use yii\web\User;
 
 /**
  * Class SentryTarget
- *
  * @author Sabryan Oleg <itcutlet@gmail.com>
  */
 class SentryTarget extends Target
