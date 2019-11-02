@@ -3,14 +3,14 @@
 namespace evolcon\sentry;
 
 use Sentry\Severity;
-use Yii;
-use app\models\User;
 use Throwable;
+use yii\base\BaseObject;
 use yii\di\Instance;
 use yii\helpers\ArrayHelper;
 use yii\helpers\VarDumper;
-use yii\log\Logger;
 use yii\log\Target;
+use yii\web\IdentityInterface;
+use yii\web\User;
 
 /**
  * Class SentryTarget
@@ -22,7 +22,11 @@ class SentryTarget extends Target
     /**
      * @var string|SentryComponent
      */
-    public $component = 'sentry';
+    public $sentryComponent = 'sentry';
+    /**
+     * @var string|User
+     */
+    public $userComponent = 'user';
     /**
      * @var array User data which will be collected to scope
      */
@@ -35,10 +39,9 @@ class SentryTarget extends Target
     {
         parent::init();
 
-        $this->component = Instance::ensure($this->component, SentryComponent::class);
-
-        if (!$this->component->enabled) {
-            $this->setEnabled(false);
+        $this->sentryComponent = Instance::ensure($this->sentryComponent, SentryComponent::class);
+        if(!empty($this->userData)) {
+            $this->userComponent = Instance::ensure($this->userComponent, User::class);
         }
     }
 
@@ -55,95 +58,90 @@ class SentryTarget extends Target
             }
         }
     }
-    /**
-     * @inheritDoc
-     */
-    protected function getContextMessage()
-    {
-        return '';
-    }
 
     /**
      * Отправка сообщения об ошибке
      * @param array $message
      * @return void
      */
-    protected function captureException($message)
+    protected function captureException($messageData)
     {
-        list($context, $level, $category, $timestamp, $traces) = $message; // Принебрегая принцыпам YAGNI, оставим пока как было
+        $data = $this->prepareData($messageData);
 
-        $data = [
-            'user'      => $this->getUserData(),
-            'level'     => $level,     // возможно надо будет удалить
-            'timestamp' => $timestamp, // возможно надо будет удалить
-            'tags' => [
-                'category' => $category,
-            ],
-        ];
-
-        if ($context instanceof ExceptionInterface) {
-
-            if (!$context->ready()) {
-                return;
-            }
-
+        if (($exception = $messageData[0]) instanceof ExceptionInterface) {
             $data = ArrayHelper::merge($data, [
-                'tags'  => $context->getTags(),
-                'extra' => $context->getExtra(),
+                'tags'  => $exception->getTags(),
+                'extra' => $exception->getExtra(),
             ]);
         }
-        $this->component->captureException($context, $data);
+
+        $this->sentryComponent->captureException($exception, $data);
     }
+
     /**
      * Отправка информационных сообщений. Не Exception
      * @param array $message
      * @return void
      */
-    protected function captureMessage($message)
+    protected function captureMessage($messageData)
     {
-        list($context, $level, $category, $timestamp, $traces) = $message; // Принебрегая принцыпам YAGNI, оставим пока как было
-        $data = [
-            'user'      => $this->getUserData(),
-            'tags'      => ['category' => $category],
-            'timestamp' => $timestamp,// возможно надо будет удалить
-        ];
+        $message = $messageData[0];
+        $data = $this->prepareData($messageData);
         $payLoad = [
-            'level' => new Severity(self::getLevelName($level)),
+            'level' => new Severity(Logger::getLevelName($messageData[1])),
+            'stacktrace' => $messageData[4],
         ];
-        if (is_string($context)) {
-            $payLoad['message'] = $context;
-        } elseif (is_array($context)) {
-            $payLoad['message'] = ArrayHelper::remove($context, 'msg') ?? ArrayHelper::remove($context, 'message', 'no message');
-            if (isset($context['traces'])) {
-                $traces[] = ArrayHelper::remove($context, 'traces');
-            }
 
-            $tags = ArrayHelper::remove($context, 'tags', []);
-            $extra = ArrayHelper::remove($context, 'extra', []);
-            $data = ArrayHelper::merge($data, [
-                'traces' => $traces, // возможно надо будет удалить
-                'tags'   => $tags,
-                'extra'  => array_merge($extra, $context),
-            ]);
+        if (is_string($message)) {
+            $payLoad['message'] = $message;
+        } elseif (is_array($message)) {
+            $payLoad['message'] = ArrayHelper::remove($message, 'message', 'no message');
+            $data['tags'] = ArrayHelper::remove($message, 'tags', []);
+            $data['extra'] = $message;
         } else {
-            $payLoad['message'] = VarDumper::export($context);
+            $payLoad['message'] = VarDumper::export($message);
         }
-        $this->component->captureMessage($payLoad, $data);
+
+        $this->sentryComponent->captureMessage($payLoad, $data);
     }
+
+    /**
+     * @param array $messageData Target message
+     * @see Please refer to [[Logger::messages]] for the details about the message structure.
+     * @return array
+     */
+    protected function prepareData($messageData)
+    {
+        return [
+            'user' => $this->getUserData(),
+            'tags' => ['category' => $messageData[2]],
+        ];
+    }
+
     /**
      * @return array
      */
-    protected function getUserData()
+    protected function prepareUserData()
     {
         $userData = [];
-        if ($this->userData && Yii::$app->has('user') && $user = Yii::$app->user->identity) {
-            /** @var User $user */
+
+        if ($this->userData && $userIdentity = $this->userComponent->identity) {
+            /** @var IdentityInterface|BaseObject $userIdentity */
             foreach ($this->userData as $attribute) {
-                if ($user->canGetProperty($attribute)) {
-                    $userData[$attribute] = $user->$attribute;
+                if ($userIdentity->canGetProperty($attribute)) {
+                    $userData[$attribute] = $userIdentity->$attribute;
                 }
             }
         }
+
         return $userData;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function getContextMessage()
+    {
+        return '';
     }
 }

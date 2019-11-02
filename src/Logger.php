@@ -1,5 +1,7 @@
 <?php
 
+namespace evolcon\sentry;
+
 /**
  * @inheritDoc
  *
