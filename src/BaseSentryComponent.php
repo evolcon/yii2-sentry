@@ -2,10 +2,9 @@
 
 namespace evolcon\sentry;
 
+use Sentry\ClientBuilder;
 use Throwable;
-use function Sentry\init as initSentryClient;
-use Sentry\SentrySdk;
-use Sentry\State\{Scope, HubInterface};
+use Sentry\State\{Hub, Scope, HubInterface};
 use Yii;
 use yii\base\{Component, InvalidConfigException};
 
@@ -67,8 +66,8 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
     protected function initClient()
     {
         if(!$this->client) {
-            initSentryClient(['dsn' => $this->dsn]);
-            $this->client = SentrySdk::getCurrentHub();
+            $this->client = new Hub();
+            $this->client->bindClient(ClientBuilder::create(['dsn' => $this->dsn])->getClient());
         } elseif (is_array($this->client)) {
             if(empty($this->client['class'])) {
                 throw new InvalidConfigException('If attribute "client" specified as array, the key "class" must be set');
@@ -112,7 +111,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      *
      * @return void
      */
-    public function captureEvent($payLoad, $data = [])
+    public function captureEvent($payLoad, $data = []): void
     {
         $this->addDataToScope($data);
         $this->beforeCapture();
