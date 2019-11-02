@@ -4,14 +4,11 @@ namespace evolcon\sentry;
 
 use Sentry\Severity;
 use Exception;
-use yii\base\BaseObject;
-use yii\base\InvalidConfigException;
+use yii\base\{BaseObject, InvalidConfigException};
 use yii\di\Instance;
-use yii\helpers\ArrayHelper;
-use yii\helpers\VarDumper;
+use yii\helpers\{ArrayHelper, VarDumper};
 use yii\log\Target;
-use yii\web\IdentityInterface;
-use yii\web\User;
+use yii\web\{IdentityInterface, User};
 
 /**
  * Class SentryTarget
@@ -61,7 +58,7 @@ class SentryTarget extends Target
     }
 
     /**
-     * Отправка сообщения об ошибке
+     * Capturing exception by sentry component
      * @param array $messageData
      * @return void
      */

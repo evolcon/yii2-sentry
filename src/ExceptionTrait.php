@@ -7,7 +7,13 @@ namespace evolcon\sentry;
  */
 trait ExceptionTrait
 {
+    /**
+     * @var array $tags
+     */
     protected $tags = [];
+    /**
+     * @var array $extra
+     */
     protected $extra = [];
 
     /**
