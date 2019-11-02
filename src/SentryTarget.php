@@ -3,8 +3,9 @@
 namespace evolcon\sentry;
 
 use Sentry\Severity;
-use Throwable;
+use Exception;
 use yii\base\BaseObject;
+use yii\base\InvalidConfigException;
 use yii\di\Instance;
 use yii\helpers\ArrayHelper;
 use yii\helpers\VarDumper;
@@ -34,6 +35,7 @@ class SentryTarget extends Target
 
     /**
      * @inheritDoc
+     * @throws InvalidConfigException
      */
     public function init()
     {
@@ -51,7 +53,7 @@ class SentryTarget extends Target
     public function export()
     {
         foreach ($this->messages as $message) {
-            if (current($message) instanceof Throwable) {
+            if (current($message) instanceof Exception) {
                 $this->captureException($message);
             } else {
                 $this->captureMessage($message);
@@ -61,7 +63,7 @@ class SentryTarget extends Target
 
     /**
      * Отправка сообщения об ошибке
-     * @param array $message
+     * @param array $messageData
      * @return void
      */
     protected function captureException($messageData)
@@ -69,10 +71,8 @@ class SentryTarget extends Target
         $data = $this->prepareData($messageData);
 
         if (($exception = $messageData[0]) instanceof ExceptionInterface) {
-            $data = ArrayHelper::merge($data, [
-                'tags'  => $exception->getTags(),
-                'extra' => $exception->getExtra(),
-            ]);
+            $data['tags'] = $exception->getTags();
+            $data['extra'] = $exception->getExtra();
         }
 
         $this->sentryComponent->captureException($exception, $data);
@@ -80,7 +80,7 @@ class SentryTarget extends Target
 
     /**
      * Отправка информационных сообщений. Не Exception
-     * @param array $message
+     * @param array $messageData
      * @return void
      */
     protected function captureMessage($messageData)
@@ -113,7 +113,7 @@ class SentryTarget extends Target
     protected function prepareData($messageData)
     {
         return [
-            'user' => $this->getUserData(),
+            'user' => $this->prepareUserData(),
             'tags' => ['category' => $messageData[2]],
         ];
     }
