@@ -1,0 +1,15 @@
+{
+  "name": "evolcon/yii2-sentry",
+  "description": "Yii2 sentry",
+  "keywords": ["php", "evolcon", "yii2", "sentry"],
+  "homepage": "https://github.com/evolcon",
+  "require": {
+    "php": ">=7.0.0",
+    "sentry/sdk": "2.2.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "evolcon\\sentry\\": "/src"
+    }
+  }
+}
