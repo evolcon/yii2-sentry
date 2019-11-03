@@ -126,3 +126,45 @@ For that we need to override SentryTarget's attribute `sentryComponent` , and se
     ],
 ],
 ```
+
+# Exception with tags
+
+```
+use evolcon\sentry\SilentException;
+
+
+throw (new SilentException('Error message'))
+    ->addTag('tagName', 'tagValue')
+    ->addTag('tagName2', 'tagValue')
+    ->addExtra('extraName', 'extraValue')
+    ->addExtra('extraName2', 'extraValue');
+
+```
+
+Multiple tags and extra
+
+```
+throw (new SilentException('Error message'))
+    ->addTags(['tagName' => 'tagValue', 'tagName2' => 'tagValue'])
+    ->addExtras(['extraName' => 'extraValue', 'extraName2' => 'extraValue']);
+```
+
+Exception without throwing is need sometimes when we need to debug our code and keep project fault tolerant.
+In this case you can create an instance of class SilentException and call method `save()`
+
+
+```
+
+try {
+
+    // my code
+
+} catch(\Throwable $e) {
+    (new SilentException('Error message'))
+        ->addTags(['tagName' => 'tagValue', 'tagName2' => 'tagValue'])
+        ->addExtras(['extraName' => 'extraValue', 'extraName2' => 'extraValue'])
+        ->save(__METHOD__);
+}
+
+```
+
