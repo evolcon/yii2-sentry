@@ -65,8 +65,9 @@ class SentryTarget extends Target
     protected function captureException($messageData)
     {
         $data = $this->prepareData($messageData);
+        $exception = $messageData[0];
 
-        if (($exception = $messageData[0]) instanceof ExceptionInterface) {
+        if ($exception instanceof ExceptionInterface) {
             $data['tags'] = $exception->getTags();
             $data['extra'] = $exception->getExtra();
         }
