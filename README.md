@@ -160,7 +160,7 @@ try {
     // my code
 
 } catch(\Throwable $e) {
-    (new SilentException('Error message'))
+    (new SilentException($e->getMessage()))
         ->addTags(['tagName' => 'tagValue', 'tagName2' => 'tagValue'])
         ->addExtras(['extraName' => 'extraValue', 'extraName2' => 'extraValue'])
         ->save(__METHOD__);
