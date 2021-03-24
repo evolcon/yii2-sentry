@@ -11,25 +11,17 @@ interface ComponentInterface
 {
     /**
      * @param Throwable $exception
-     * @param array $data
+     * @param array $payload
      *
      * @return void
      */
-    public function captureException(Throwable $exception, array $data = []): void;
+    public function captureException(Throwable $exception, array $payload = []): void;
 
     /**
-     * @param array $payLoad
-     * @param array $data
+     * @param string $message
+     * @param array $payload
      *
      * @return void
      */
-    public function captureMessage(array $payLoad, array $data = []): void;
-
-    /**
-     * @param array $payLoad Main information with settings for event
-     * @param array $data Additional data that may come in handy. (tags, extra, user data and etc.)
-     *
-     * @return void
-     */
-    public function captureEvent(array $payLoad, array $data = []): void;
+    public function captureMessage(string $message, array $payload = []): void;
 }

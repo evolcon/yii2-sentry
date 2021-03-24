@@ -2,12 +2,16 @@
 
 namespace evolcon\sentry;
 
-use Sentry\ClientBuilder;
-use Sentry\Event;
+use Sentry\EventHint;
+use Sentry\SentrySdk;
+use Sentry\Serializer\RepresentationSerializer;
+use Sentry\Stacktrace;
+use Sentry\StacktraceBuilder;
 use Throwable;
-use Sentry\State\{Hub, Scope, HubInterface};
+use Sentry\State\{Scope, HubInterface};
 use Yii;
 use yii\base\{Component, InvalidConfigException};
+use function Sentry\init as initSentry;
 
 /**
  * Use this class only for extending, for capturing exceptions you can use [[SentryComponent]]
@@ -30,10 +34,10 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     public string $dsn;
     /**
-     * @var HubInterface|array|callable|object Client for sending messages.
+     * @var HubInterface|array|null Client for sending messages.
      * @throws InvalidConfigException
      */
-    public mixed $client;
+    public HubInterface|array|null $client = null;
 
     /**
      * @var HubInterface
@@ -58,68 +62,61 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     protected function initClient()
     {
-        if(!$this->client) {
-            $this->_client = new Hub();
-            $this->_client->bindClient(ClientBuilder::create(['dsn' => $this->dsn])->getClient());
+        if(!isset($this->client)) {
+            initSentry(['dsn' => $this->dsn]);
+            $this->_client = SentrySdk::getCurrentHub();
         } elseif (is_array($this->client)) {
-            if(empty($this->client['class'])) {
-                throw new InvalidConfigException('If attribute "client" specified as array, the key "class" must be set');
-            } else {
-                $this->_client = Yii::createObject($this->client);
-            }
-        } elseif (is_callable($this->client)) {
-            $this->_client = call_user_func($this->client);
-        } else {
-            $this->_client = $this->client;
+            $this->_client = Yii::createObject($this->client);
+        } elseif (!$this->client instanceof HubInterface) {
+            throw new InvalidConfigException('Invalid client setting. Expected: null, array, HubInterface.');
         }
 
         $this->client = null;
     }
 
     /**
-     * @param Throwable $exception
-     * @param array $data
-     *
-     * @return void
+     * @inheritDoc
      */
-    public function captureException(Throwable $exception, $data = []): void
+    public function captureException(Throwable $exception, $payload = []): void
     {
-        $this->captureEvent(['exceptions' => [$exception]], $data);
+        $this->capture($exception, $payload);
     }
 
     /**
-     * @param array $payLoad
-     * @param array $data
-     *
-     * @return void
+     * @inheritDoc
      */
-    public function captureMessage(array $payLoad, array $data = []): void
+    public function captureMessage(string $message, array $payload = []): void
     {
-        $this->captureEvent($payLoad, $data);
+        $this->capture($message, $payload);
     }
 
     /**
-     * @param array $payLoad Main information with settings for event
-     * @param array $data Additional data that may come in handy. (tags, extra, user data and etc.)
+     * @param Throwable|string $event Main information to be logged
+     * @param array $payload Additional data that may come in handy. (tags, extra, user data and etc.)
      *
      * @return void
      */
-    public function captureEvent(array $payLoad, $data = []): void
+    protected function capture(Throwable|string $event, array $payload = []): void
     {
         if (!$this->enabled) {
             return;
         }
 
-        $this->addDataToScope($data);
+        $this->addDataToScope($payload);
         $this->beforeCapture();
-        $event = Event::createEvent();
 
-        foreach ($payLoad as $attr => $value) {
-            $setter = 'set' . ucfirst($attr);
-            $event->$setter($value);
+        if(is_string($event)) {
+            $hint = new EventHint();
+
+            if(isset($payload['stacktrace'])) {
+                $stackBuilder = new StacktraceBuilder($this->_client->getClient()->getOptions(), new RepresentationSerializer($this->_client->getClient()->getOptions()));
+                $hint->stacktrace = $stackBuilder->buildFromBacktrace($payload['stacktrace'], '', 0);
+            }
+            $this->_client->captureMessage($event, null, $hint);
+        } else {
+            $this->_client->captureException($event);
         }
 
-        $this->client->captureEvent($event);
         $this->afterCapture();
     }
 

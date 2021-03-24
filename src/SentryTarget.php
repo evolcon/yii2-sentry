@@ -65,16 +65,13 @@ class SentryTarget extends Target
     protected function captureException(array $messageData): void
     {
         $exception = $messageData[0];
-
         $payLoad = $this->prepareData($messageData);
-        $payLoad['exceptions'] = [$exception];
 
         if ($exception instanceof ExceptionInterface) {
-            $data['tags'] = $exception->getTags();
-            $data['extra'] = $exception->getExtra();
+            $payLoad['tags'] = $exception->getTags();
+            $payLoad['extra'] = $exception->getExtra();
         }
-
-        $this->sentryComponent->captureEvent($payLoad);
+        $this->sentryComponent->captureException($exception, $payLoad);
     }
 
     /**
@@ -84,22 +81,27 @@ class SentryTarget extends Target
      */
     protected function captureMessage(array $messageData): void
     {
-        $payLoad = $this->prepareData($messageData);
-        $payLoad['level'] = new Severity(Logger::getLevelName($messageData[1]));
-        $payLoad['stacktrace'] = $messageData[4];
-
         $message = $messageData[0];
-        if (is_string($message)) {
-            $payLoad['message'] = $message;
-        } elseif (is_array($message)) {
-            $payLoad['message'] = ArrayHelper::remove($message, 'message', 'no message');
-            $payLoad['tags'][] = ArrayHelper::remove($message, 'tags', []);
-            $payLoad['extra'] = $message;
-        } else {
-            $payLoad['message'] = VarDumper::export($message);
+
+        $data = $this->prepareData($messageData);
+//        $payLoad['level'] = new Severity(Logger::getLevelName($messageData[1]));
+        $data['stacktrace'] = $messageData[4];
+
+
+        if (is_array($message)) {
+            $message = ArrayHelper::remove($message, 'message', 'no message');
+
+            if(!empty($message['tags'])) {
+                $data['tags'][] = ArrayHelper::remove($message, 'tags', []);
+            }
+            if($message) {
+                $data['extra'] = $message;
+            }
+        } elseif(!is_string($message)) {
+            $message = VarDumper::export($message);
         }
 
-        $this->sentryComponent->captureEvent($payLoad);
+        $this->sentryComponent->captureMessage($message, $data);
     }
 
     /**

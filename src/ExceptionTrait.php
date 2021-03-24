@@ -10,11 +10,11 @@ trait ExceptionTrait
     /**
      * @var array $tags
      */
-    protected $tags = [];
+    protected array $tags = [];
     /**
      * @var array $extra
      */
-    protected $extra = [];
+    protected array $extra = [];
 
     /**
      * @return array
@@ -37,7 +37,7 @@ trait ExceptionTrait
      * @param $value
      * @return $this
      */
-    public function addTag(string $tag, $value)
+    public function addTag(string $tag, $value): static
     {
         $this->tags[$tag] = (string) $value;
 
@@ -49,7 +49,7 @@ trait ExceptionTrait
      * @param $value
      * @return $this
      */
-    public function addExtra(string $name, $value)
+    public function addExtra(string $name, $value): static
     {
         $this->extra[$name] = $value;
 
@@ -60,7 +60,7 @@ trait ExceptionTrait
      * @param array $tags
      * @return $this
      */
-    public function addTags(array $tags)
+    public function addTags(array $tags): static
     {
         foreach ($tags as $key => $value) {
             $this->addTag($key, $value);
@@ -73,7 +73,7 @@ trait ExceptionTrait
      * @param array $extras
      * @return $this
      */
-    public function addExtras(array $extras)
+    public function addExtras(array $extras): static
     {
         foreach ($extras as $key => $value) {
             $this->addExtra($key, $value);
