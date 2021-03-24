@@ -3,7 +3,7 @@
 Installation
 ---------
 ```
-composer require luckyshopteam/yii2-sentry @dev
+composer require evolcon/yii2-sentry:@dev
 ```
 
 Add SentryComponent to the the application config:

@@ -3,6 +3,7 @@
 namespace evolcon\sentry;
 
 use Sentry\ClientBuilder;
+use Sentry\Event;
 use Throwable;
 use Sentry\State\{Hub, Scope, HubInterface};
 use Yii;
@@ -10,11 +11,6 @@ use yii\base\{Component, InvalidConfigException};
 
 /**
  * Use this class only for extending, for capturing exceptions you can use [[SentryComponent]]
- *
- * @property string  $dsn
- * @property HubInterface  $client
- * @property boolean $enabled
- * @property boolean $environment
  *
  * @author Sabryan Oleg <itcutlet@gmail.com>
  */
@@ -27,17 +23,22 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      * Set to `false` to skip collecting errors
      * @var bool
      */
-    public $enabled = true;
+    public bool $enabled = true;
     /**
      * Your private DSN url
      * @var string
      */
-    public $dsn;
+    public string $dsn;
     /**
      * @var HubInterface|array|callable|object Client for sending messages.
      * @throws InvalidConfigException
      */
-    public $client;
+    public mixed $client;
+
+    /**
+     * @var HubInterface
+     */
+    protected HubInterface $_client;
 
     /**
      * @inheritDoc
@@ -45,15 +46,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     public function init()
     {
-        if (!$this->enabled) {
-            return;
-        }
-        if (empty($this->dsn)) {
-            throw new InvalidConfigException('Private DSN must be set.');
-        }
-
         parent::init();
-
         $this->initClient();
     }
 
@@ -66,21 +59,21 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
     protected function initClient()
     {
         if(!$this->client) {
-            $this->client = new Hub();
-            $this->client->bindClient(ClientBuilder::create(['dsn' => $this->dsn])->getClient());
+            $this->_client = new Hub();
+            $this->_client->bindClient(ClientBuilder::create(['dsn' => $this->dsn])->getClient());
         } elseif (is_array($this->client)) {
             if(empty($this->client['class'])) {
                 throw new InvalidConfigException('If attribute "client" specified as array, the key "class" must be set');
             } else {
-                $this->client = Yii::createObject($this->client);
+                $this->_client = Yii::createObject($this->client);
             }
         } elseif (is_callable($this->client)) {
-            $this->client = call_user_func($this->client);
+            $this->_client = call_user_func($this->client);
+        } else {
+            $this->_client = $this->client;
         }
 
-        if (!is_object($this->client)) {
-            throw new InvalidConfigException(get_class($this) . '::' . 'client must be an object');
-        }
+        $this->client = null;
     }
 
     /**
@@ -91,7 +84,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     public function captureException(Throwable $exception, $data = []): void
     {
-        $this->captureEvent(['exception' => $exception], $data);
+        $this->captureEvent(['exceptions' => [$exception]], $data);
     }
 
     /**
@@ -111,11 +104,22 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      *
      * @return void
      */
-    public function captureEvent($payLoad, $data = []): void
+    public function captureEvent(array $payLoad, $data = []): void
     {
+        if (!$this->enabled) {
+            return;
+        }
+
         $this->addDataToScope($data);
         $this->beforeCapture();
-        $this->client->captureEvent($payLoad);
+        $event = Event::createEvent();
+
+        foreach ($payLoad as $attr => $value) {
+            $setter = 'set' . ucfirst($attr);
+            $event->$setter($value);
+        }
+
+        $this->client->captureEvent($event);
         $this->afterCapture();
     }
 
@@ -145,7 +149,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     protected function setExtra(array $extra): void
     {
-        $this->client->configureScope(function (Scope $scope) use ($extra) {
+        $this->_client->configureScope(function (Scope $scope) use ($extra) {
             $scope->setExtras($extra);
         });
     }
@@ -158,7 +162,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     protected function setTags(array $tags): void
     {
-        $this->client->configureScope(function (Scope $scope) use ($tags) {
+        $this->_client->configureScope(function (Scope $scope) use ($tags) {
             $scope->setTags($tags);
         });
     }
@@ -171,7 +175,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
      */
     protected function setUser(array $userData): void
     {
-        $this->client->configureScope(function (Scope $scope) use ($userData) {
+        $this->_client->configureScope(function (Scope $scope) use ($userData) {
             $scope->setUser($userData);
         });
     }
@@ -189,7 +193,7 @@ abstract class BaseSentryComponent extends Component implements ComponentInterfa
     {
         $this->trigger(self::EVENT_AFTER_CAPTURE);
 
-        $this->client->configureScope(function (Scope $scope) {
+        $this->_client->configureScope(function (Scope $scope) {
             $scope->clear();
         });
     }

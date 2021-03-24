@@ -3,20 +3,8 @@
 namespace evolcon\sentry;
 
 use Throwable;
-use function Sentry\init as initSentryClient;
-use Sentry\SentrySdk;
-use Sentry\State\{Scope, HubInterface};
-use Yii;
-use yii\base\{Component, InvalidConfigException};
 
 /**
- * Class SentryComponent
- *
- * @property string  $dsn
- * @property HubInterface  $client
- * @property boolean $enabled
- * @property boolean $environment
- *
  * @author Sabryan Oleg <itcutlet@gmail.com>
  */
 interface ComponentInterface
@@ -27,7 +15,7 @@ interface ComponentInterface
      *
      * @return void
      */
-    public function captureException(Throwable $exception, $data = []): void;
+    public function captureException(Throwable $exception, array $data = []): void;
 
     /**
      * @param array $payLoad
@@ -43,5 +31,5 @@ interface ComponentInterface
      *
      * @return void
      */
-    public function captureEvent($payLoad, $data = []): void;
+    public function captureEvent(array $payLoad, array $data = []): void;
 }

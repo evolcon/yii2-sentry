@@ -4,7 +4,8 @@
   "keywords": ["php", "evolcon", "yii2", "sentry"],
   "homepage": "https://github.com/evolcon",
   "require": {
-    "sentry/sdk": "^2.0"
+    "php": ">=8.0.2",
+    "sentry/sdk": "3.1.*"
   },
   "autoload": {
     "psr-4": {

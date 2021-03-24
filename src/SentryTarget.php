@@ -62,17 +62,19 @@ class SentryTarget extends Target
      * @param array $messageData
      * @return void
      */
-    protected function captureException($messageData)
+    protected function captureException(array $messageData): void
     {
-        $data = $this->prepareData($messageData);
         $exception = $messageData[0];
+
+        $payLoad = $this->prepareData($messageData);
+        $payLoad['exceptions'] = [$exception];
 
         if ($exception instanceof ExceptionInterface) {
             $data['tags'] = $exception->getTags();
             $data['extra'] = $exception->getExtra();
         }
 
-        $this->sentryComponent->captureException($exception, $data);
+        $this->sentryComponent->captureEvent($payLoad);
     }
 
     /**
@@ -80,34 +82,33 @@ class SentryTarget extends Target
      * @param array $messageData
      * @return void
      */
-    protected function captureMessage($messageData)
+    protected function captureMessage(array $messageData): void
     {
-        $message = $messageData[0];
-        $data = $this->prepareData($messageData);
-        $payLoad = [
-            'level' => new Severity(Logger::getLevelName($messageData[1])),
-            'stacktrace' => $messageData[4],
-        ];
+        $payLoad = $this->prepareData($messageData);
+        $payLoad['level'] = new Severity(Logger::getLevelName($messageData[1]));
+        $payLoad['stacktrace'] = $messageData[4];
 
+        $message = $messageData[0];
         if (is_string($message)) {
             $payLoad['message'] = $message;
         } elseif (is_array($message)) {
             $payLoad['message'] = ArrayHelper::remove($message, 'message', 'no message');
-            $data['tags'] = ArrayHelper::remove($message, 'tags', []);
-            $data['extra'] = $message;
+            $payLoad['tags'][] = ArrayHelper::remove($message, 'tags', []);
+            $payLoad['extra'] = $message;
         } else {
             $payLoad['message'] = VarDumper::export($message);
         }
 
-        $this->sentryComponent->captureMessage($payLoad, $data);
+        $this->sentryComponent->captureEvent($payLoad);
     }
 
     /**
      * @param array $messageData Target message
      * @see Please refer to [[Logger::messages]] for the details about the message structure.
-     * @return array
+     *
+     * @return array ['user' => "array", 'tags' => "array"]
      */
-    protected function prepareData($messageData)
+    protected function prepareData(array $messageData): array
     {
         return [
             'user' => $this->prepareUserData(),
@@ -118,7 +119,7 @@ class SentryTarget extends Target
     /**
      * @return array
      */
-    protected function prepareUserData()
+    protected function prepareUserData(): array
     {
         $userData = [];
 
@@ -137,7 +138,7 @@ class SentryTarget extends Target
     /**
      * @inheritDoc
      */
-    protected function getContextMessage()
+    protected function getContextMessage(): string
     {
         return '';
     }
